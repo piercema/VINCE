@@ -28,6 +28,7 @@
 ########################################################################
 import difflib
 import json
+import markdown
 import random
 import re
 import requests
@@ -3910,6 +3911,31 @@ class DownloadVulNote(LoginRequiredMixin, TokenMixin, UserPassesTestMixin, gener
         response = HttpResponse(json_file, content_type = mime_type)
         response['Content-Disposition'] = 'attachment; filename=' + json_file.name
         response["Content-type"] = "application/json"
+        response["Cache-Control"] = "must-revalidate"
+        response["Pragma"] = "must-revalidate"
+        return response
+
+class DownloadVulNoteHtml(LoginRequiredMixin, TokenMixin, UserPassesTestMixin, generic.TemplateView):
+    login_url = "vince:login"
+
+    def test_func(self):
+        if is_in_group_vincetrack(self.request.user):
+            vulnote = get_object_or_404(VulNote, id=self.kwargs['pk'])
+            return has_case_read_access(self.request.user, vulnote.case)
+
+    def dispatch(self, request, *args, **kwargs):
+
+        vulnote = get_object_or_404(VulNote, id=self.kwargs['pk'])
+        case = vulnote.case
+
+        vu_html = markdown.markdown(vulnote.current_revision.content)
+
+        html_file = ContentFile(vu_html)
+        html_file.name = case.vu_vuid + ".html"
+        mime_type = 'text/html'
+        response = HttpResponse(html_file, content_type = mime_type)
+        response['Content-Disposition'] = 'attachment; filename=' + html_file.name
+        response["Content-type"] = "text/html"
         response["Cache-Control"] = "must-revalidate"
         response["Pragma"] = "must-revalidate"
         return response
